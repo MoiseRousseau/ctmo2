@@ -1,56 +1,48 @@
 cmake_minimum_required(VERSION 3.10)
 
-
-option(BUILD_HOME "home build" ON) #builds for linux, default
-option(BUILD_MAC "mac build" OFF)
-option(BUILD_GRAHAM "graham build" OFF)
 option(BUILD_MPI "build with mpi" OFF)
-
+option(BUILD_TESTS OFF)
 
 project(ctmo_cdh VERSION 2.2.0)
 
+include(${CMAKE_SOURCE_DIR}/cmake/compile_options.txt)
 
-include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/compile_options.txt)
-include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/tools.cmake)
-#conan_init(cmake)
-
-
-#-------------------------------------------------------------------------------------------------------------
+#-------------MPI----------------
 message(STATUS "CMAKE_CXX_COMPILER_ID: ${CMAKE_CXX_COMPILER_ID}")
 
-
 if (${BUILD_MPI})
+    include(FindMPI)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DHAVEMPI")
-    message(STATUS "Compiling with Open MPI. Have you set CXX=mpic++ ?")
-    set(BUILD_TESTS OFF)
+    set(CMAKE_CXX_COMPILER ${MPI_CXX_COMPILER})
+    message(STATUS "Switch to compiler: ${CMAKE_CXX_COMPILER}")
 endif ()
 
+#-------------DEPENDENCIES-----------------
 
+# LAPACK (note: LAPACK implementation can be chosen by the user with -DBLA_VENDOR=...)
+find_package(LAPACK REQUIRED)
+message(STATUS "LAPACK LIBS = ${LAPACK_LIBRARIES}")
 
+#Boost
 find_package(Boost REQUIRED COMPONENTS mpi serialization filesystem system program_options)
+message(STATUS "BOOST LIBS = ${Boost_LIBRARIES}")
 
-#-------------HOME--------------------------------------------------
-if (${BUILD_HOME})
-    find_package(LAPACK REQUIRED)
-    set(LIBRARIES_EXEC ${LAPACK_LIBRARIES} ${Boost_LIBRARIES} snappy armadillo)
-endif ()
-#-------------HOME--------------------------------------------------
+#Armadillo
+find_package(Armadillo REQUIRED)
+message(STATUS "Armadillo LIBS = ${ARMADILLO_LIBRARIES}")
 
-if (${BUILD_MAC})
-    find_package(LAPACK REQUIRED)
-    find_package(Boost REQUIRED COMPONENTS mpi serialization filesystem system)
-    set(LIBRARIES_EXEC lapack blas ${Boost_LIBRARIES} armadillo)
-endif ()
+#Snappy (optional)
+find_package(Snappy REQUIRED)
+include(${CMAKE_SOURCE_DIR}/cmake/FindSnappy.cmake)
+message(STATUS "Snappy LIBS = ${SNAPPY_LIBRARIES}")
 
-
-#-------------GRAHAM--------------------------------------------------
-if (${BUILD_GRAHAM})
-    set(BUILD_TESTS OFF)
-    set(CMAKE_EXE_LINKER_FLAGS "-L${MKLROOT}/lib/intel64")
-    set(LIBRARIES_EXEC armadillo mkl_gf_lp64 mkl_sequential mkl_core ${Boost_LIBRARIES} snappy)
-endif ()
-#-------------GRAHAM--------------------------------------------------
-
+# Link to exec
+set(LIBRARIES_EXEC
+    ${LAPACK_LIBRARIES}
+    ${Boost_LIBRARIES}
+    ${SNAPPY_LIBRARIES}
+    ${ARMADILLO_LIBRARIES}
+)
 
 ################################
 
@@ -62,8 +54,6 @@ set(EXECECUTABLES
         ctmo_dca
         ctmo_slmc
         )
-
-message(STATUS "BOOST LIBS = ${Boost_LIBRARIES}")
 
 foreach (executable ${EXECECUTABLES})
     list(APPEND ${executable}_src ${executable}.cpp)
@@ -85,8 +75,7 @@ foreach (executable ${EXECECUTABLES})
         $<INSTALL_INTERFACE:include>
         $<INSTALL_INTERFACE:include/ctmo/deps>
     )
-                     
-    
+
     install(TARGETS ${executable} EXPORT ${CMAKE_PROJECT_NAME}Targets
             LIBRARY DESTINATION lib
             ARCHIVE DESTINATION lib
@@ -99,10 +88,6 @@ install(DIRECTORY ../include/ctmo
         DESTINATION include
         COMPONENT Devel
 )
-
-
-# generate configuration files and install the package
-configure_and_install(../cmake/simple_package-config.cmake.in SameMajorVersion)
 
 
 #--------------------end Executables ----------------------------------------------------------

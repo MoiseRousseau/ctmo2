@@ -6,7 +6,6 @@ option(BUILD_TESTS "Build all tests." OFF) # Makes boolean 'test' available.
 if (${BUILD_TESTS})
 
     include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/compile_options.txt)
-    include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/tools.cmake)
 
      # Download and unpack googletest at configure time
     configure_file(CMakeLists.txt.in ${CMAKE_BINARY_DIR}/googletest-download/CMakeLists.txt)
